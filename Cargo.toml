@@ -1,7 +1,7 @@
 [package]
 name = "movielister"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -9,12 +9,17 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 leptos = { version = "0.8.10" }
 leptos_router = { version = "0.8.8" }
-axum = { version = "0.8.6", optional = true }
+axum = { version = "0.8.6", features = ["macros"], optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 leptos_axum = { version = "0.8.6", optional = true }
-leptos_meta = { version = "0.8.5" }
+leptos_meta = { version = "0.8.5"}
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 wasm-bindgen = { version = "=0.2.103", optional = true }
+surrealdb ={version =  "2.3.10", optional = true}
+toml ={version =  "0.9.7", optional = true}
+serde = { version = "1.0.228", features = ["derive"], optional = true }
+color-eyre = "0.6.5"
+leptos-fetch = { version = "0.4.7", features = ["devtools"] }
 
 [features]
 hydrate = [
@@ -29,6 +34,10 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
+    "dep:surrealdb",
+    "dep:toml",
+    "dep:serde",
+    "leptos-fetch/ssr"
 ]
 
 # Defines a size-optimized profile for the WASM bundle in release mode

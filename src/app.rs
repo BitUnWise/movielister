@@ -1,9 +1,18 @@
+use std::time::Duration;
+
 use leptos::prelude::*;
-use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
+use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
+use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
-    components::{Route, Router, Routes},
     StaticSegment,
+    components::{Route, Router, Routes},
 };
+
+#[cfg(feature = "ssr")]
+pub mod ssr {
+    use std::sync::{LazyLock, RwLock};
+    pub static COUNT: LazyLock<RwLock<u32>> = LazyLock::new(RwLock::default);
+}
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -28,7 +37,12 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
+    let client = QueryClient::new()
+        .with_refetch_enabled_toggle(true)
+        .provide();
+
     view! {
+        <QueryDevtools client=client/>
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/movielister.css"/>
@@ -47,15 +61,44 @@ pub fn App() -> impl IntoView {
     }
 }
 
+#[server]
+async fn get_count() -> Result<u32, ServerFnError> {
+    let count = self::ssr::COUNT.read()?;
+    Ok(*count)
+}
+
+#[server]
+async fn inc_count() -> Result<(), ServerFnError> {
+    *self::ssr::COUNT.write()? += 1;
+    Ok(())
+}
+
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    // Creates a reactive value to update the button
-    let count = RwSignal::new(0);
-    let on_click = move |_| *count.write() += 1;
+    let client: QueryClient = expect_context();
+
+    let query = QueryScope::new(get_count)
+        .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(5)));
+    let resource = client.resource(query.clone(), move || ());
+
+    let update_count = ServerAction::<IncCount>::new();
+
+    Effect::new(move |_| {
+        update_count.version().get();
+        client.invalidate_query_scope(query.clone());
+    });
 
     view! {
         <h1>"Welcome to Leptos!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+        <Suspense fallback=move || view! {<p>"Loading list"</p>}>
+            {move || Suspend::new(async move {
+                let resource = resource.await;
+                view!{
+                <button on:click=move|_| {update_count.dispatch(IncCount {  });}
+                >"Click Me: " {resource}</button>
+                }
+            })}
+        </Suspense>
     }
 }

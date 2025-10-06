@@ -1,17 +1,24 @@
 #[cfg(feature = "ssr")]
+use color_eyre::Result;
+
+#[cfg(feature = "ssr")]
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
+    color_eyre::install()?;
     use axum::Router;
     use leptos::logging::log;
     use leptos::prelude::*;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
-    use movielister::app::*;
+    use leptos_axum::{LeptosRoutes, generate_route_list};
+    use movielister::app::shell;
+    use movielister::{app::App, secrets::init_secrets};
 
     let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
     let leptos_options = conf.leptos_options;
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(App);
+
+    init_secrets().await?;
 
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {
@@ -25,9 +32,8 @@ async fn main() {
     // `axum::Server` is a re-export of `hyper::Server`
     log!("listening on http://{}", &addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app.into_make_service())
-        .await
-        .unwrap();
+    axum::serve(listener, app.into_make_service()).await?;
+    Ok(())
 }
 
 #[cfg(not(feature = "ssr"))]
