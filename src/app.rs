@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use leptos::{prelude::*, task::spawn_local};
+use iddqd::IdHashMap;
+use leptos::prelude::*;
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
@@ -8,10 +9,16 @@ use leptos_router::{
     components::{Route, Router, Routes},
 };
 
+use crate::movies::Movie;
+
 #[cfg(feature = "ssr")]
-pub mod ssr {
+pub(crate) mod ssr {
     use std::sync::{LazyLock, RwLock};
-    pub static COUNT: LazyLock<RwLock<u32>> = LazyLock::new(RwLock::default);
+
+    use iddqd::IdHashMap;
+
+    use crate::movies::Movie;
+    pub static MOVIE_LIST: LazyLock<RwLock<IdHashMap<Movie>>> = LazyLock::new(RwLock::default);
 }
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -62,14 +69,18 @@ pub fn App() -> impl IntoView {
 }
 
 #[server]
-async fn get_count() -> Result<u32, ServerFnError> {
-    let count = self::ssr::COUNT.read()?;
-    Ok(*count)
+async fn get_movies() -> Result<IdHashMap<Movie>, ServerFnError> {
+    let count = self::ssr::MOVIE_LIST.read()?;
+    Ok(count.clone())
 }
 
 #[server]
-async fn inc_count() -> Result<(), ServerFnError> {
-    *self::ssr::COUNT.write()? += 1;
+async fn add_movie(movie: Movie) -> Result<(), ServerFnError> {
+    use crate::database::write_movie_db;
+    self::ssr::MOVIE_LIST
+        .write()?
+        .insert_overwrite(movie.clone());
+    write_movie_db(movie).await.map_err(ServerFnError::new)?;
     Ok(())
 }
 
@@ -78,33 +89,36 @@ async fn inc_count() -> Result<(), ServerFnError> {
 fn HomePage() -> impl IntoView {
     let client: QueryClient = expect_context();
 
-    let query = QueryScope::new(get_count)
+    let query = QueryScope::new(get_movies)
         .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(60)))
-        .with_title("Count");
+        .with_title("Movies");
     let resource = client.resource(query, move || ());
 
-    let update_count = ServerAction::<IncCount>::new();
+    let add_movie_action = ServerAction::<AddMovie>::new();
 
-    let inc_click = move |_| {
-        spawn_local(async move {
-            update_count.dispatch(IncCount {});
-            client.update_query(get_count, (), |c| {
+    Effect::new(move |_| {
+        if add_movie_action.pending().get() {
+            let movie = add_movie_action.input().get().unwrap().movie;
+
+            client.update_query(get_movies, (), |c| {
                 if let Some(Ok(c)) = c {
-                    *c += 1
+                    c.insert_overwrite(movie);
                 }
             });
-        });
-    };
+        }
+    });
 
     view! {
         <h1>"Welcome to Leptos!"</h1>
         <Suspense fallback=move || view! {<p>"Loading list"</p>}>
+            <ActionForm action=add_movie_action>
+                <input type="text" name="movie[name]"/>
+                <input type="number" name="movie[id]"/>
+                <input type="submit"/>
+            </ActionForm>
             {move || Suspend::new(async move {
-                let resource = resource.await;
-                view!{
-                <button on:click=inc_click
-                >"Click Me: " {resource}</button>
-                }
+                let resource = resource.await.expect("Should have movies");
+                resource.iter().map(&move |movie: &Movie| {let name = movie.name.clone(); view!{<p> "Title: " {name}</p>}}).collect::<Vec<_>>()
             })}
         </Suspense>
     }

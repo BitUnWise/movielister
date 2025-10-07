@@ -1,4 +1,5 @@
-use color_eyre::{eyre::eyre, eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr, eyre::eyre};
+use leptos::logging::log;
 use serde::Deserialize;
 use tokio::sync::OnceCell;
 
@@ -21,7 +22,9 @@ static SECRETS: OnceCell<Secrets> = OnceCell::const_new();
 pub async fn init_secrets() -> Result<()> {
     SECRETS
         .set(Secrets::load()?)
-        .map_err(|_| eyre!("Failed to set secrets"))
+        .map_err(|_| eyre!("Failed to set secrets"))?;
+    log!("Secrets init");
+    Ok(())
 }
 
 pub async fn get_secrets() -> &'static Secrets {

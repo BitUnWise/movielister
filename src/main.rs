@@ -10,6 +10,7 @@ async fn main() -> Result<()> {
     use leptos::prelude::*;
     use leptos_axum::{LeptosRoutes, generate_route_list};
     use movielister::app::shell;
+    use movielister::database::load_from_db;
     use movielister::{app::App, secrets::init_secrets};
 
     let conf = get_configuration(None).unwrap();
@@ -19,6 +20,8 @@ async fn main() -> Result<()> {
     let routes = generate_route_list(App);
 
     init_secrets().await?;
+
+    load_from_db().await?;
 
     let app = Router::new()
         .leptos_routes(&leptos_options, routes, {

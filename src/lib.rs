@@ -1,5 +1,8 @@
 pub mod app;
 #[cfg(feature = "ssr")]
+pub mod database;
+pub mod movies;
+#[cfg(feature = "ssr")]
 pub mod secrets;
 
 #[cfg(feature = "hydrate")]
