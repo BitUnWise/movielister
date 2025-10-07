@@ -85,11 +85,6 @@ fn HomePage() -> impl IntoView {
 
     let update_count = ServerAction::<IncCount>::new();
 
-    // Effect::new(move |_| {
-    //     update_count.version().get();
-    //     client.invalidate_query_scope(get_count);
-    // });
-
     let inc_click = move |_| {
         spawn_local(async move {
             update_count.dispatch(IncCount {});
