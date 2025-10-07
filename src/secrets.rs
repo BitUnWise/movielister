@@ -11,8 +11,12 @@ pub struct Secrets {
 const SECRETS_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/secrets.toml");
 impl Secrets {
     fn load() -> Result<Secrets> {
-        let secrets = std::fs::read_to_string(SECRETS_FILE)
-            .wrap_err_with(|| eyre!("Failed to open secrets {SECRETS_FILE}"))?;
+        let secrets = if cfg!(feature = "fly") {
+            std::env::var("secrets").wrap_err_with(|| eyre!("Failed to read env: secrets"))?
+        } else {
+            std::fs::read_to_string(SECRETS_FILE)
+                .wrap_err_with(|| eyre!("Failed to open secrets {SECRETS_FILE}"))?
+        };
         Ok(toml::from_str(&secrets)?)
     }
 }

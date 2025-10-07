@@ -39,6 +39,7 @@ ssr = [
     "dep:toml",
     "leptos-fetch/ssr"
 ]
+fly = []
 
 # Defines a size-optimized profile for the WASM bundle in release mode
 [profile.wasm-release]
