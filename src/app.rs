@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use leptos::prelude::*;
+use leptos::{prelude::*, task::spawn_local};
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
@@ -79,15 +79,27 @@ fn HomePage() -> impl IntoView {
     let client: QueryClient = expect_context();
 
     let query = QueryScope::new(get_count)
-        .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(5)));
-    let resource = client.resource(query.clone(), move || ());
+        .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(60)))
+        .with_title("Count");
+    let resource = client.resource(query, move || ());
 
     let update_count = ServerAction::<IncCount>::new();
 
-    Effect::new(move |_| {
-        update_count.version().get();
-        client.invalidate_query_scope(query.clone());
-    });
+    // Effect::new(move |_| {
+    //     update_count.version().get();
+    //     client.invalidate_query_scope(get_count);
+    // });
+
+    let inc_click = move |_| {
+        spawn_local(async move {
+            update_count.dispatch(IncCount {});
+            client.update_query(get_count, (), |c| {
+                if let Some(Ok(c)) = c {
+                    *c += 1
+                }
+            });
+        });
+    };
 
     view! {
         <h1>"Welcome to Leptos!"</h1>
@@ -95,7 +107,7 @@ fn HomePage() -> impl IntoView {
             {move || Suspend::new(async move {
                 let resource = resource.await;
                 view!{
-                <button on:click=move|_| {update_count.dispatch(IncCount {  });}
+                <button on:click=inc_click
                 >"Click Me: " {resource}</button>
                 }
             })}
