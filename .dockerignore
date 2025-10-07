@@ -1,4 +1,4 @@
-fly.toml
 .git/
 target/
 secrets.toml
+fly.toml
