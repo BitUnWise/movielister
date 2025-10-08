@@ -23,6 +23,8 @@ leptos-fetch = { version = "0.4.7", features = ["devtools"] }
 iddqd = { version = "0.3.14", features = ["serde"] }
 rkyv = "0.8.12"
 futures = "0.3.31"
+tmdb-api = {git = "https://github.com/BitUnWise/tmdb-api.git", rev="67cf1fea6da4a5279fd2a10fdb5aa2292275503a", optional = true}
+chrono = "0.4.42"
 
 [features]
 hydrate = [
@@ -39,7 +41,8 @@ ssr = [
     "leptos_router/ssr",
     "dep:surrealdb",
     "dep:toml",
-    "leptos-fetch/ssr"
+    "leptos-fetch/ssr",
+    "dep:tmdb-api",
 ]
 fly = []
 

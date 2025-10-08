@@ -4,7 +4,10 @@ use iddqd::IdHashMap;
 use leptos::{
     prelude::*,
     reactive::spawn_local,
-    server_fn::{BoxedStream, ServerFnError, Websocket, codec::RkyvEncoding},
+    server_fn::{
+        BoxedStream, Http, ServerFnError, Websocket,
+        codec::{PostUrl, Rkyv, RkyvEncoding},
+    },
 };
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
@@ -14,7 +17,9 @@ use leptos_router::{
 };
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::movies::Movie;
+use crate::{app::movie_searcher::MovieSearcher, movies::Movie};
+
+mod movie_searcher;
 
 #[derive(Clone, Serialize, Deserialize, Archive, Debug)]
 pub(crate) enum Msg {
@@ -90,7 +95,7 @@ async fn get_movies() -> Result<IdHashMap<Movie>, ServerFnError> {
     Ok(count.clone())
 }
 
-#[server]
+#[server(protocol = Http<PostUrl, Rkyv>)]
 async fn add_movie(movie: Movie) -> Result<(), ServerFnError> {
     use futures::SinkExt;
     let movie_send = movie.clone();
@@ -154,20 +159,16 @@ fn HomePage() -> impl IntoView {
     }
 
     let query = QueryScope::new(get_movies)
-        .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(60)))
+        .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(360)))
         .with_title("Movies");
     let resource = client.resource(query, move || ());
 
-    let add_movie_action = ServerAction::<AddMovie>::new();
-
     view! {
         <h1>"Welcome to Leptos!"</h1>
-        <Suspense fallback=move || view! { <p>"Loading list"</p> }>
-            <ActionForm action=add_movie_action>
-                <input type="text" name="movie[name]" />
-                <input type="number" name="movie[id]" />
-                <input type="submit" />
-            </ActionForm>
+        <MovieSearcher />
+        <Suspense fallback=move || {
+            view! { <p>"Loading list"</p> }
+        }>
             {move || Suspend::new(async move {
                 let resource = resource.await.expect("Should have movies");
                 resource
