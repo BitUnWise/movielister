@@ -1,24 +1,40 @@
 use std::time::Duration;
 
 use iddqd::IdHashMap;
-use leptos::prelude::*;
+use leptos::{
+    prelude::*,
+    reactive::spawn_local,
+    server_fn::{BoxedStream, ServerFnError, Websocket, codec::RkyvEncoding},
+};
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
     StaticSegment,
     components::{Route, Router, Routes},
 };
+use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::movies::Movie;
+
+#[derive(Clone, Serialize, Deserialize, Archive, Debug)]
+pub(crate) enum Msg {
+    AddMovie(Movie),
+}
 
 #[cfg(feature = "ssr")]
 pub(crate) mod ssr {
     use std::sync::{LazyLock, RwLock};
 
+    use futures::channel::mpsc::Sender;
     use iddqd::IdHashMap;
+    use leptos::prelude::ServerFnError;
+    use tokio::sync::Mutex;
 
-    use crate::movies::Movie;
+    use crate::{app::Msg, movies::Movie};
     pub static MOVIE_LIST: LazyLock<RwLock<IdHashMap<Movie>>> = LazyLock::new(RwLock::default);
+
+    pub static SOCKET_LIST: LazyLock<Mutex<Vec<Sender<Result<Msg, ServerFnError>>>>> =
+        LazyLock::new(Mutex::default);
 }
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -76,6 +92,19 @@ async fn get_movies() -> Result<IdHashMap<Movie>, ServerFnError> {
 
 #[server]
 async fn add_movie(movie: Movie) -> Result<(), ServerFnError> {
+    use futures::SinkExt;
+    let movie_send = movie.clone();
+    tokio::spawn(async move {
+        let mut list = self::ssr::SOCKET_LIST.lock().await;
+        let list: &mut Vec<_> = list.as_mut();
+        list.retain(|s| !s.is_closed());
+        for socket in list {
+            socket
+                .send(Ok(Msg::AddMovie(movie_send.clone())))
+                .await
+                .unwrap();
+        }
+    });
     use crate::database::write_movie_db;
     self::ssr::MOVIE_LIST
         .write()?
@@ -84,10 +113,45 @@ async fn add_movie(movie: Movie) -> Result<(), ServerFnError> {
     Ok(())
 }
 
+#[server(protocol = Websocket<RkyvEncoding, RkyvEncoding>)]
+async fn get_socket(
+    _input: BoxedStream<Msg, ServerFnError>,
+) -> Result<BoxedStream<Msg, ServerFnError>, ServerFnError> {
+    let (tx, rc) = futures::channel::mpsc::channel(10);
+    self::ssr::SOCKET_LIST.lock().await.push(tx);
+    Ok(rc.into())
+}
+
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
     let client: QueryClient = expect_context();
+
+    use futures::{StreamExt, channel::mpsc};
+    let (_tx, rx) = mpsc::channel(1);
+    if cfg!(feature = "hydrate") {
+        spawn_local(async move {
+            match get_socket(rx.into()).await {
+                Ok(mut messages) => {
+                    while let Some(msg) = messages.next().await {
+                        let Ok(msg) = msg else {
+                            continue;
+                        };
+                        match msg {
+                            Msg::AddMovie(movie) => {
+                                client.update_query(get_movies, (), |c| {
+                                    if let Some(Ok(c)) = c {
+                                        c.insert_overwrite(movie);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+                Err(e) => leptos::logging::warn!("{e}"),
+            }
+        });
+    }
 
     let query = QueryScope::new(get_movies)
         .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(60)))
@@ -95,18 +159,6 @@ fn HomePage() -> impl IntoView {
     let resource = client.resource(query, move || ());
 
     let add_movie_action = ServerAction::<AddMovie>::new();
-
-    Effect::new(move |_| {
-        if add_movie_action.pending().get() {
-            let movie = add_movie_action.input().get().unwrap().movie;
-
-            client.update_query(get_movies, (), |c| {
-                if let Some(Ok(c)) = c {
-                    c.insert_overwrite(movie);
-                }
-            });
-        }
-    });
 
     view! {
         <h1>"Welcome to Leptos!"</h1>

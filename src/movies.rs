@@ -1,7 +1,21 @@
-use iddqd::{IdHashItem, id_upcast};
+use iddqd::{id_upcast, IdHashItem};
+use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Clone, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize, Debug)]
+#[derive(
+    Default,
+    Clone,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Eq,
+    Serialize,
+    Deserialize,
+    Archive,
+    Debug,
+    RDes,
+    RSer,
+)]
 pub(crate) struct Movie {
     pub(crate) id: u32,
     pub(crate) name: String,
