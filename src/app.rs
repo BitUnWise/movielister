@@ -26,14 +26,14 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <AutoReload options=options.clone() />
-                <HydrationScripts options/>
-                <MetaTags/>
+                <HydrationScripts options />
+                <MetaTags />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -49,19 +49,19 @@ pub fn App() -> impl IntoView {
         .provide();
 
     view! {
-        <QueryDevtools client=client/>
+        <QueryDevtools client=client />
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/movielister.css"/>
+        <Stylesheet id="leptos" href="/pkg/movielister.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="Welcome to Leptos" />
 
         // content for this welcome page
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage/>
+                    <Route path=StaticSegment("") view=HomePage />
                 </Routes>
             </main>
         </Router>
@@ -110,15 +110,23 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"Welcome to Leptos!"</h1>
-        <Suspense fallback=move || view! {<p>"Loading list"</p>}>
+        <Suspense fallback=move || view! { <p>"Loading list"</p> }>
             <ActionForm action=add_movie_action>
-                <input type="text" name="movie[name]"/>
-                <input type="number" name="movie[id]"/>
-                <input type="submit"/>
+                <input type="text" name="movie[name]" />
+                <input type="number" name="movie[id]" />
+                <input type="submit" />
             </ActionForm>
             {move || Suspend::new(async move {
                 let resource = resource.await.expect("Should have movies");
-                resource.iter().map(&move |movie: &Movie| {let name = movie.name.clone(); view!{<p> "Title: " {name}</p>}}).collect::<Vec<_>>()
+                resource
+                    .iter()
+                    .map(
+                        &move |movie: &Movie| {
+                            let name = movie.name.clone();
+                            view! { <p>"Title: " {name}</p> }
+                        },
+                    )
+                    .collect::<Vec<_>>()
             })}
         </Suspense>
     }
