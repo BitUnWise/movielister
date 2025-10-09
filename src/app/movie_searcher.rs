@@ -6,7 +6,7 @@ use leptos::{
 };
 use leptos_fetch::QueryClient;
 
-use crate::movies::MovieSearch;
+use crate::movies::{MovieSearch, MovieThumb};
 
 #[server(protocol = Http<PostUrl, Rkyv>)]
 async fn get_search(query: String) -> Result<Vec<MovieSearch>, ServerFnError> {
@@ -42,12 +42,7 @@ pub fn movie_searcher() -> impl IntoView {
                 let search = search.await.expect("Should have movies");
                 search
                     .iter()
-                    .map(
-                        &move |movie: &MovieSearch| {
-                            let name = movie.inner.title.clone();
-                            view! { <p>"Title: " {name}</p> }
-                        },
-                    )
+                    .map(&move |movie: &MovieSearch| view! { <MovieThumb movie=movie.clone() /> })
                     .collect::<Vec<_>>()
             })}
         </Suspense>

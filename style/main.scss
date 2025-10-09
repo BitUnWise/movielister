@@ -1,4 +1,47 @@
+:root {
+	--backgroud-color: oklch(0.2834 0.001 151.41);
+	--background-card: oklch(from var(--backgroud-color) calc(l + 0.05) c h);
+}
+
 body {
 	font-family: sans-serif;
 	text-align: center;
+	background: var(--backgroud-color);
+}
+
+img {
+	width: 200px;
+}
+
+:has(.card) {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.card {
+	display: flex;
+	background: var(--background-card);
+	width: 50%;
+	align-items: flex-start;
+	margin: 10px;
+	box-shadow: 2px 10px 20px;
+	border-radius: 10px;
+
+	img {
+		margin: 5px;
+	}
+
+	label {
+		align-self: center;
+	}
+}
+
+label {
+	font-size: 30px;
+	color: white;
+}
+
+h1 {
+	color: white;
 }

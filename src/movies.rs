@@ -1,5 +1,6 @@
 use chrono::NaiveDate;
 use iddqd::{IdHashItem, id_upcast};
+use leptos::prelude::*;
 use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
 
@@ -86,7 +87,7 @@ impl From<tmdb_api::movie::MovieBase> for MovieBase {
 #[derive(
     Default, Clone, PartialEq, PartialOrd, Serialize, Deserialize, Archive, Debug, RDes, RSer,
 )]
-pub(crate) struct MovieSearch {
+pub struct MovieSearch {
     pub(crate) inner: MovieBase,
     pub(crate) genre_ids: Vec<u64>,
 }
@@ -98,5 +99,22 @@ impl From<tmdb_api::movie::MovieShort> for MovieSearch {
             inner: value.inner.into(),
             genre_ids: value.genre_ids,
         }
+    }
+}
+
+const IMAGE_PREFIX: &str = "https://image.tmdb.org/t/p/w500/";
+
+#[component]
+pub(crate) fn MovieThumb(movie: MovieSearch) -> impl IntoView {
+    let poster = movie
+        .inner
+        .poster_path
+        .map(|p| format!("{IMAGE_PREFIX}{p}"))
+        .unwrap_or_default();
+    view! {
+        <div class = "card">
+            <img src=poster />
+            <label>{movie.inner.title}</label>
+        </div>
     }
 }
