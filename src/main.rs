@@ -5,12 +5,14 @@ use color_eyre::Result;
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    use axum::Router;
+    use axum::routing::get;
+    use axum::{Extension, Router};
     use leptos::logging::log;
     use leptos::prelude::*;
     use leptos_axum::{LeptosRoutes, generate_route_list};
     use movielister::app::shell;
     use movielister::database::load_from_db;
+    use movielister::oauth::{OauthState, callback, create_url};
     use movielister::{app::App, secrets::init_secrets};
 
     let conf = get_configuration(None).unwrap();
@@ -24,6 +26,8 @@ async fn main() -> Result<()> {
     load_from_db().await?;
 
     let app = Router::new()
+        // .route("/", get(create_url))
+        .route("/discord_callback", get(callback))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())

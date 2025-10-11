@@ -6,6 +6,8 @@ use tokio::sync::OnceCell;
 #[derive(Deserialize, Debug)]
 pub struct Secrets {
     pub surreal_db_password: String,
+    pub discord_client_id: String,
+    pub discord_client_secret: String,
 }
 
 const SECRETS_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/secrets.toml");

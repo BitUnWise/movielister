@@ -4,17 +4,18 @@ use iddqd::IdHashMap;
 use leptos::{
     prelude::*,
     reactive::spawn_local,
-    server_fn::{BoxedStream, ServerFnError, Websocket, codec::RkyvEncoding},
+    server_fn::{codec::RkyvEncoding, BoxedStream, ServerFnError, Websocket}, task::spawn,
 };
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
-    StaticSegment,
-    components::{Route, Router, Routes},
+    components::{Redirect, RedirectProps, Route, Router, Routes}, static_routes::StaticRoute, NavigateOptions, SsrMode, StaticSegment
 };
 use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::movies::Movie;
+#[cfg(feature = "ssr")]
+use crate::oauth::create_url;
 
 #[derive(Clone, Serialize, Deserialize, Archive, Debug)]
 pub(crate) enum Msg {
@@ -77,7 +78,7 @@ pub fn App() -> impl IntoView {
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage />
+                    <Route path=StaticSegment("authorized") view=HomePage />
                 </Routes>
             </main>
         </Router>
