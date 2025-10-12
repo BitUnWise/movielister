@@ -24,6 +24,8 @@ iddqd = { version = "0.3.14", features = ["serde"] }
 rkyv = "0.8.12"
 futures = "0.3.31"
 oauth-axum = { version = "0.1.4", optional = true }
+base64-serde = { version = "0.8.0", optional = true}
+leptos-use = { version = "0.16.3", features = ["use_cookie", "axum"], optional = true }
 
 [features]
 hydrate = [
@@ -38,10 +40,14 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
+    "leptos-use/ssr",
+    "leptos-use/axum",
     "dep:surrealdb",
     "dep:toml",
     "leptos-fetch/ssr",
     "dep:oauth-axum",
+    "dep:base64-serde",
+
 ]
 fly = []
 

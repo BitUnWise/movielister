@@ -4,18 +4,20 @@ use iddqd::IdHashMap;
 use leptos::{
     prelude::*,
     reactive::spawn_local,
-    server_fn::{codec::RkyvEncoding, BoxedStream, ServerFnError, Websocket}, task::spawn,
+    server_fn::{codec::RkyvEncoding, BoxedStream, ServerFnError, Websocket},
 };
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
-    components::{Redirect, RedirectProps, Route, Router, Routes}, static_routes::StaticRoute, NavigateOptions, SsrMode, StaticSegment
+    StaticSegment,
+    components::{Route, Router, Routes},
 };
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::movies::Movie;
-#[cfg(feature = "ssr")]
-use crate::oauth::create_url;
+use crate::{
+    movies::Movie,
+};
+// use crate::oauth::AuthPage;
 
 #[derive(Clone, Serialize, Deserialize, Archive, Debug)]
 pub(crate) enum Msg {
@@ -61,6 +63,7 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
+    println!("CONTEXT PROVIDED");
     let client = QueryClient::new()
         .with_refetch_enabled_toggle(true)
         .provide();
@@ -78,7 +81,9 @@ pub fn App() -> impl IntoView {
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("authorized") view=HomePage />
+                    // <Route path=StaticSegment("/") view=AuthPage />
+                    // <Route path=StaticSegment("/discord_callback") view=CallbackPage />
+                    <Route path=StaticSegment("/movies") view=HomePage />
                 </Routes>
             </main>
         </Router>

@@ -2,7 +2,6 @@ pub mod app;
 #[cfg(feature = "ssr")]
 pub mod database;
 pub mod movies;
-#[cfg(feature = "ssr")]
 pub mod oauth;
 #[cfg(feature = "ssr")]
 pub mod secrets;
