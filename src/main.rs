@@ -6,14 +6,14 @@ use color_eyre::Result;
 async fn main() -> Result<()> {
     color_eyre::install()?;
     use std::sync::Arc;
-
+    use axum::middleware::{self};
     use axum::Router;
     use leptos::logging::log;
     use leptos::prelude::*;
-    use leptos_axum::{LeptosRoutes, generate_route_list};
+    use leptos_axum::{generate_route_list, LeptosRoutes};
     use movielister::app::shell;
     use movielister::database::load_from_db;
-    use movielister::oauth::oauth::AppState;
+    use movielister::oauth::oauth::{authentication_middleware, AppState};
     use movielister::{app::App, secrets::init_secrets};
 
     let conf = get_configuration(None).unwrap();
@@ -30,10 +30,8 @@ async fn main() -> Result<()> {
         leptos_options: leptos_options,
         states: Arc::default(),
     };
-
+    
     let app = Router::new()
-        // .route("/", get(authenticate))
-        // .route("/discord_callback", discord_callback())
         .leptos_routes(&state, routes, {
             let leptos_options = state.leptos_options.clone();
             move || shell(leptos_options.clone())
@@ -41,6 +39,8 @@ async fn main() -> Result<()> {
         .fallback(leptos_axum::file_and_error_handler::<LeptosOptions, _>(
             shell,
         ))
+        .layer(middleware::from_fn(authentication_middleware))
+        .layer(tower_cookies::CookieManagerLayer::new())
         .with_state(state);
 
     // run our app with hyper

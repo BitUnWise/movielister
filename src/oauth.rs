@@ -1,7 +1,6 @@
 use leptos::{
-    logging::log,
     prelude::*,
-    server::codee::string::FromToStringCodec, server_fn::codec::GetUrl,
+     server_fn::codec::GetUrl,
 };
 
 #[cfg(feature = "ssr")]
@@ -9,9 +8,11 @@ pub mod oauth {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use axum::extract::FromRef;
+    use axum::extract::{FromRef, Request};
 
     
+    use axum::middleware::Next;
+    use axum::response::Response;
     use leptos::prelude::ServerFnError;
     use leptos::{config::LeptosOptions, prelude::expect_context};
     use oauth_axum::{
@@ -44,12 +45,6 @@ pub mod oauth {
         )
     }
 
-    // #[derive(Debug, Default, Deserialize, Serialize, Clone)]
-    // pub struct OauthState {
-    //     pub(crate) state: String,
-    //     pub(crate) verifier: String,
-    // }
-
     pub async fn create_url() -> Result<String, ServerFnError> {
         let state: AppState = expect_context();
         let secrets = get_secrets().await;
@@ -78,26 +73,37 @@ pub mod oauth {
         pub state: String,
     }
 
-    // pub async fn authenticate(cookies: PrivateCookieJar) -> (PrivateCookieJar, Redirect) {
-    //     println!("{cookies:?}");
-    //     let cookies = cookies.add(Cookie::new("token", "pizza"));
-    //     // let (token, token_write) = token;
-    //     // let Some(cookie) = token else {
-    //     //     log!("HEHE");
-    //     //     leptos_axum::redirect("https://google.com");
-    //     //     return Ok(());
-    //     // };
-    //     // leptos_axum::redirect("/movies");
-    //     // Ok(())
-    //     (cookies, Redirect::to("https://google.com"))
-    // }
+    pub async fn authentication_middleware(
+        mut request: Request,
+        next: Next,
+    ) -> Response {
+        use axum::RequestExt;
+            use axum::{body::Body, http::StatusCode};
+
+        let cookies: tower_cookies::Cookies = request.extract_parts().await.unwrap();
+        if request.uri().path().starts_with("/movies") {
+            if cookies.get("token").is_none() {
+
+                let mut response = Response::new(Body::empty());
+                *response.status_mut() = StatusCode::from_u16(401).unwrap();
+                return response;
+            }
+        }
+
+        let response = next.run(request).await;
+
+        response
+    }
+
 }
 #[server (prefix="", endpoint="", input = GetUrl)]
 pub async fn authenticate() -> Result<(), ServerFnError> {
     use crate::oauth::oauth::create_url;
     use leptos_use::use_cookie;
+    use leptos::logging::log;
+    use crate::oauth::codee::string::FromToStringCodec;
     let cookies = use_cookie::<String, FromToStringCodec>("token");
-    println!("{:?}", cookies.0.get());
+    log!("{:?}", cookies.0.get());
     leptos_axum::redirect(&create_url().await?);
     Ok(())
 }
@@ -111,6 +117,7 @@ pub async fn discord_callback() -> Result<(), ServerFnError> {
     use oauth::get_client;
     use oauth_axum::OAuthClient;
     use oauth_axum::error::OauthError::{AuthUrlCreationFailed, TokenRequestFailed};
+    use leptos::logging::log;
     log!("GOT CALLBACK");
     let state: AppState = expect_context();
     let queries: Query<QueryAxumCallback> = extract().await?;

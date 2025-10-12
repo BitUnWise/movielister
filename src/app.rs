@@ -81,8 +81,6 @@ pub fn App() -> impl IntoView {
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    // <Route path=StaticSegment("/") view=AuthPage />
-                    // <Route path=StaticSegment("/discord_callback") view=CallbackPage />
                     <Route path=StaticSegment("/movies") view=HomePage />
                 </Routes>
             </main>
