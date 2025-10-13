@@ -4,7 +4,7 @@ use iddqd::IdHashMap;
 use leptos::{
     prelude::*,
     reactive::spawn_local,
-    server_fn::{codec::RkyvEncoding, BoxedStream, ServerFnError, Websocket},
+    server_fn::{BoxedStream, ServerFnError, Websocket, codec::RkyvEncoding},
 };
 use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
@@ -14,9 +14,7 @@ use leptos_router::{
 };
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::{
-    movies::Movie,
-};
+use crate::movies::Movie;
 // use crate::oauth::AuthPage;
 
 #[derive(Clone, Serialize, Deserialize, Archive, Debug)]
@@ -63,7 +61,6 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
-    println!("CONTEXT PROVIDED");
     let client = QueryClient::new()
         .with_refetch_enabled_toggle(true)
         .provide();
@@ -75,7 +72,7 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/movielister.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos" />
+        <Title text="Movie Lister" />
 
         // content for this welcome page
         <Router>
@@ -165,7 +162,7 @@ fn HomePage() -> impl IntoView {
     let add_movie_action = ServerAction::<AddMovie>::new();
 
     view! {
-        <h1>"Welcome to Leptos!"</h1>
+        <h1>"Welcome to MovieLister!"</h1>
         <Suspense fallback=move || view! { <p>"Loading list"</p> }>
             <ActionForm action=add_movie_action>
                 <input type="text" name="movie[name]" />

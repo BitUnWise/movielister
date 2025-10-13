@@ -5,16 +5,17 @@ use color_eyre::Result;
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    use std::sync::Arc;
-    use axum::middleware::{self};
     use axum::Router;
+    use axum::middleware::{self};
     use leptos::logging::log;
     use leptos::prelude::*;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::{LeptosRoutes, generate_route_list};
     use movielister::app::shell;
-    use movielister::database::load_from_db;
-    use movielister::oauth::oauth::{authentication_middleware, AppState};
+    use movielister::database::{get_auth_tokens, load_from_db};
+    use movielister::oauth::oauth::{AppState, authentication_middleware};
     use movielister::{app::App, secrets::init_secrets};
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     let conf = get_configuration(None).unwrap();
     let addr = conf.leptos_options.site_addr;
@@ -29,8 +30,9 @@ async fn main() -> Result<()> {
     let state = AppState {
         leptos_options: leptos_options,
         states: Arc::default(),
+        auth_tokens: Arc::new(RwLock::new(get_auth_tokens().await?)),
     };
-    
+
     let app = Router::new()
         .leptos_routes(&state, routes, {
             let leptos_options = state.leptos_options.clone();
@@ -45,7 +47,11 @@ async fn main() -> Result<()> {
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
-    log!("listening on http://{}", &addr);
+    if cfg!(feature = "fly") {
+        log!("listening on http://{}", &addr);
+    } else {
+        log!("listening on http://localhost:3000");
+    }
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app.into_make_service()).await?;
     Ok(())

@@ -1,9 +1,6 @@
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
 
-use color_eyre::{
-    Result,
-    eyre::eyre,
-};
+use color_eyre::{Result, eyre::eyre};
 use leptos::logging::log;
 use serde::{Deserialize, Serialize};
 use surrealdb::{
@@ -13,7 +10,7 @@ use surrealdb::{
     sql::Thing,
 };
 
-use crate::{app::ssr::MOVIE_LIST, movies::Movie, secrets::get_secrets};
+use crate::{app::ssr::MOVIE_LIST, movies::Movie, oauth::oauth::AuthToken, secrets::get_secrets};
 
 static DB_CONNECTION: OnceLock<Surreal<Any>> = OnceLock::new();
 
@@ -87,22 +84,23 @@ pub(crate) async fn write_movie_db(movie: Movie) -> Result<()> {
     Ok(())
 }
 
-// const OAUTH_STATE: &str = "oauthstate";
+const AUTH_TOKENS: &str = "auth_tokens";
 
-// pub(crate) async fn write_oauth(state: OauthState) -> Result<()> {
-//     let db = get_database().await;
-//     let _: Option<OauthState> = db
-//         .insert((OAUTH_STATE, &state.state))
-//         .content(state)
-//         .await?;
-//     Ok(())
-// }
+pub(crate) async fn write_auth_token(token: AuthToken) -> Result<()> {
+    let db = get_database().await;
+    let _: Option<AuthToken> = db
+        .insert((AUTH_TOKENS, &token.token))
+        .content(token)
+        .await?;
+    Ok(())
+}
 
-// pub(crate) async fn get_oauth(state: &str) -> Result<OauthState> {
-//     let db = get_database().await;
-//     let state = db
-//         .select((OAUTH_STATE, state))
-//         .await?
-//         .ok_or_eyre(eyre!("{state} not found"))?;
-//     Ok(state)
-// }
+pub async fn get_auth_tokens() -> Result<HashMap<String, u64>> {
+    let db = get_database().await;
+    let tokens: Vec<AuthToken> = db.select(AUTH_TOKENS).await?;
+    let tokens = tokens
+        .into_iter()
+        .map(|t| (t.token, t.discord_id))
+        .collect();
+    Ok(tokens)
+}

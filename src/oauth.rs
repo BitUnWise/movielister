@@ -1,7 +1,4 @@
-use leptos::{
-    prelude::*,
-     server_fn::codec::GetUrl,
-};
+use leptos::{prelude::*, server_fn::codec::GetUrl};
 
 #[cfg(feature = "ssr")]
 pub mod oauth {
@@ -10,25 +7,20 @@ pub mod oauth {
 
     use axum::extract::{FromRef, Request};
 
-    
     use axum::middleware::Next;
     use axum::response::Response;
     use leptos::prelude::ServerFnError;
     use leptos::{config::LeptosOptions, prelude::expect_context};
-    use oauth_axum::{
-        CustomProvider, OAuthClient,
-    };
     use oauth_axum::providers::discord::DiscordProvider;
-    use tokio::sync::Mutex;
+    use oauth_axum::{CustomProvider, OAuthClient};
+    use tokio::sync::{Mutex, RwLock};
 
-    use crate::{
-        // database::{get_oauth, write_oauth},
-        secrets::{Secrets, get_secrets},
-    };
+    use crate::secrets::{Secrets, get_secrets};
     #[derive(Clone)]
     pub struct AppState {
         pub leptos_options: LeptosOptions,
         pub states: Arc<Mutex<HashMap<String, String>>>,
+        pub auth_tokens: Arc<RwLock<HashMap<String, u64>>>,
     }
 
     impl FromRef<AppState> for LeptosOptions {
@@ -73,17 +65,13 @@ pub mod oauth {
         pub state: String,
     }
 
-    pub async fn authentication_middleware(
-        mut request: Request,
-        next: Next,
-    ) -> Response {
+    pub async fn authentication_middleware(mut request: Request, next: Next) -> Response {
         use axum::RequestExt;
-            use axum::{body::Body, http::StatusCode};
+        use axum::{body::Body, http::StatusCode};
 
         let cookies: tower_cookies::Cookies = request.extract_parts().await.unwrap();
         if request.uri().path().starts_with("/movies") {
             if cookies.get("token").is_none() {
-
                 let mut response = Response::new(Body::empty());
                 *response.status_mut() = StatusCode::from_u16(401).unwrap();
                 return response;
@@ -95,40 +83,62 @@ pub mod oauth {
         response
     }
 
+    #[derive(Clone, serde::Deserialize, serde::Serialize)]
+    pub struct AuthToken {
+        pub token: String,
+        pub discord_id: u64,
+    }
 }
 #[server (prefix="", endpoint="", input = GetUrl)]
 pub async fn authenticate() -> Result<(), ServerFnError> {
+    use crate::oauth::oauth::AppState;
     use crate::oauth::oauth::create_url;
-    use leptos_use::use_cookie;
-    use leptos::logging::log;
-    use crate::oauth::codee::string::FromToStringCodec;
-    let cookies = use_cookie::<String, FromToStringCodec>("token");
-    log!("{:?}", cookies.0.get());
+    use leptos_axum::extract;
+    let cookies: tower_cookies::Cookies = extract().await?;
+    let state: AppState = expect_context();
+    if let Some(token) = cookies.get("token")
+        && state.auth_tokens.read().await.contains_key(token.value())
+    {
+        leptos_axum::redirect("/movies");
+        return Ok(());
+    }
     leptos_axum::redirect(&create_url().await?);
     Ok(())
 }
 
 #[server (prefix="", endpoint="discord_callback", input = GetUrl)]
 pub async fn discord_callback() -> Result<(), ServerFnError> {
+    use crate::database::write_auth_token;
     use crate::oauth::oauth::{AppState, QueryAxumCallback};
     use crate::secrets::get_secrets;
     use axum::extract::Query;
+    use leptos::logging::log;
     use leptos_axum::extract;
     use oauth::get_client;
     use oauth_axum::OAuthClient;
     use oauth_axum::error::OauthError::{AuthUrlCreationFailed, TokenRequestFailed};
-    use leptos::logging::log;
+    use rand::Rng;
+    use rand::distr::Alphanumeric;
+    use serde::Deserialize;
+    use serde_with::{DisplayFromStr, serde_as};
+    use tower_cookies::{Cookie, cookie::time::Duration};
+    #[serde_as]
+    #[derive(Deserialize, Debug)]
+    struct User {
+        #[serde_as(as = "DisplayFromStr")]
+        id: u64,
+    }
     log!("GOT CALLBACK");
-    let state: AppState = expect_context();
+    let app_state: AppState = expect_context();
     let queries: Query<QueryAxumCallback> = extract().await?;
-    let state = state
+    let state = app_state
         .states
         .lock()
         .await
         .remove(&queries.state)
         .ok_or_else(|| ServerFnError::new("Failed to find state"))?;
     let secrets = get_secrets().await;
-    match get_client(secrets)
+    let token = match get_client(secrets)
         .generate_token(queries.code.clone(), state)
         .await
     {
@@ -138,8 +148,39 @@ pub async fn discord_callback() -> Result<(), ServerFnError> {
             AuthUrlCreationFailed => panic!("auth url creation failed"),
         },
     };
-    log!("MADE IT");
+    let client = reqwest::Client::new();
+    let user: User = client
+        .get("https://discord.com/api/users/@me")
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let token: String = rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect();
+    write_auth_token(oauth::AuthToken {
+        token: token.clone(),
+        discord_id: user.id,
+    })
+    .await
+    .map_err(ServerFnError::new)?;
+    app_state
+        .auth_tokens
+        .write()
+        .await
+        .insert(token.clone(), user.id);
+    let cookies: tower_cookies::Cookies = extract().await?;
+    let mut cookie = Cookie::new("token", token);
+    cookie.set_max_age(Some(Duration::weeks(4)));
+    cookie.set_http_only(true);
+    cookie.set_secure(true);
+    cookies.add(cookie);
+    log!("{user:?}");
     leptos_axum::redirect("/movies");
     Ok(())
 }
-

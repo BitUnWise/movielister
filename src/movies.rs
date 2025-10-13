@@ -1,4 +1,4 @@
-use iddqd::{id_upcast, IdHashItem};
+use iddqd::{IdHashItem, id_upcast};
 use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
 
