@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::sync::OnceLock;
 
 use color_eyre::{Result, eyre::eyre};
+use iddqd::IdHashMap;
 use leptos::logging::log;
 use serde::{Deserialize, Serialize};
 use surrealdb::{
@@ -10,7 +11,12 @@ use surrealdb::{
     sql::Thing,
 };
 
-use crate::{app::ssr::MOVIE_LIST, movies::Movie, oauth::oauth::AuthToken, secrets::get_secrets};
+use crate::{
+    app::ssr::MOVIE_LIST,
+    movies::Movie,
+    oauth::oauth::{AUTH_TOKENS, User},
+    secrets::get_secrets,
+};
 
 static DB_CONNECTION: OnceLock<Surreal<Any>> = OnceLock::new();
 
@@ -84,23 +90,27 @@ pub(crate) async fn write_movie_db(movie: Movie) -> Result<()> {
     Ok(())
 }
 
-const AUTH_TOKENS: &str = "auth_tokens";
+pub(crate) const USERS: &str = "users";
 
-pub(crate) async fn write_auth_token(token: AuthToken) -> Result<()> {
+pub async fn get_users() -> Result<IdHashMap<User>> {
     let db = get_database().await;
-    let _: Option<AuthToken> = db
-        .insert((AUTH_TOKENS, &token.token))
-        .content(token)
-        .await?;
-    Ok(())
+    let users: Vec<User> = db.select(USERS).await?;
+    let mut auth_tokens = AUTH_TOKENS.write().await;
+    for user in &users {
+        for token in &user.auth_tokens {
+            auth_tokens.insert(token.to_owned(), user.user_id);
+        }
+    }
+    log!("Loaded {} users", users.len());
+    let users = users.into_iter().collect();
+    Ok(users)
 }
 
-pub async fn get_auth_tokens() -> Result<HashMap<String, u64>> {
+pub(crate) async fn write_auth_token(user: u64, token: &str) -> Result<()> {
     let db = get_database().await;
-    let tokens: Vec<AuthToken> = db.select(AUTH_TOKENS).await?;
-    let tokens = tokens
-        .into_iter()
-        .map(|t| (t.token, t.discord_id))
-        .collect();
-    Ok(tokens)
+    let query = format!("UPDATE {USERS}:⟨{user}⟩ SET auth_tokens += \"{token}\"");
+    log!("adding {query}");
+    db.query(query).await?;
+    log!("DID IT!");
+    Ok(())
 }

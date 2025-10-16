@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     use leptos::prelude::*;
     use leptos_axum::{LeptosRoutes, generate_route_list};
     use movielister::app::shell;
-    use movielister::database::{get_auth_tokens, load_from_db};
+    use movielister::database::{get_users, load_from_db};
     use movielister::oauth::oauth::{AppState, authentication_middleware};
     use movielister::{app::App, secrets::init_secrets};
     use std::sync::Arc;
@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
     let state = AppState {
         leptos_options: leptos_options,
         states: Arc::default(),
-        auth_tokens: Arc::new(RwLock::new(get_auth_tokens().await?)),
+        users: Arc::new(RwLock::new(get_users().await?)),
     };
 
     let app = Router::new()

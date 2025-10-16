@@ -3,25 +3,32 @@ use leptos::{prelude::*, server_fn::codec::GetUrl};
 #[cfg(feature = "ssr")]
 pub mod oauth {
     use std::collections::HashMap;
-    use std::sync::Arc;
+    use std::sync::{Arc, LazyLock};
 
     use axum::extract::{FromRef, Request};
 
     use axum::middleware::Next;
     use axum::response::Response;
+    use iddqd::{IdHashItem, IdHashMap, id_upcast};
     use leptos::prelude::ServerFnError;
     use leptos::{config::LeptosOptions, prelude::expect_context};
     use oauth_axum::providers::discord::DiscordProvider;
     use oauth_axum::{CustomProvider, OAuthClient};
+    use serde::{Deserialize, Serialize};
+    use surreal_derive_plus::SurrealDerive;
+    use surreal_devl::surreal_id::SurrealId;
     use tokio::sync::{Mutex, RwLock};
 
+    use crate::database::USERS;
     use crate::secrets::{Secrets, get_secrets};
     #[derive(Clone)]
     pub struct AppState {
         pub leptos_options: LeptosOptions,
         pub states: Arc<Mutex<HashMap<String, String>>>,
-        pub auth_tokens: Arc<RwLock<HashMap<String, u64>>>,
+        pub users: Arc<RwLock<IdHashMap<User>>>,
     }
+
+    pub static AUTH_TOKENS: LazyLock<RwLock<HashMap<String, u64>>> = LazyLock::new(RwLock::default);
 
     impl FromRef<AppState> for LeptosOptions {
         fn from_ref(input: &AppState) -> Self {
@@ -70,8 +77,12 @@ pub mod oauth {
         use axum::{body::Body, http::StatusCode};
 
         let cookies: tower_cookies::Cookies = request.extract_parts().await.unwrap();
+        let auth_tokens = AUTH_TOKENS.read().await;
         if request.uri().path().starts_with("/movies") {
-            if cookies.get("token").is_none() {
+            if cookies
+                .get("token")
+                .is_none_or(|t| !auth_tokens.contains_key(t.value()))
+            {
                 let mut response = Response::new(Body::empty());
                 *response.status_mut() = StatusCode::from_u16(401).unwrap();
                 return response;
@@ -83,21 +94,39 @@ pub mod oauth {
         response
     }
 
-    #[derive(Clone, serde::Deserialize, serde::Serialize)]
-    pub struct AuthToken {
-        pub token: String,
-        pub discord_id: u64,
+    #[derive(SurrealDerive, Serialize, Deserialize, Debug)]
+    pub struct User {
+        pub user_id: u64,
+        pub name: String,
+        pub auth_tokens: Vec<String>,
+    }
+
+    impl IdHashItem for User {
+        type Key<'a> = u64;
+
+        fn key(&self) -> Self::Key<'_> {
+            self.user_id
+        }
+
+        id_upcast!();
+    }
+
+    use surrealdb::sql::Id;
+    use surrealdb::sql::Thing;
+    impl SurrealId for User {
+        fn id(&self) -> Thing {
+            Thing::from((USERS, Id::Number(self.user_id as i64)))
+        }
     }
 }
 #[server (prefix="", endpoint="", input = GetUrl)]
 pub async fn authenticate() -> Result<(), ServerFnError> {
-    use crate::oauth::oauth::AppState;
+    use crate::oauth::oauth::AUTH_TOKENS;
     use crate::oauth::oauth::create_url;
     use leptos_axum::extract;
     let cookies: tower_cookies::Cookies = extract().await?;
-    let state: AppState = expect_context();
     if let Some(token) = cookies.get("token")
-        && state.auth_tokens.read().await.contains_key(token.value())
+        && AUTH_TOKENS.read().await.contains_key(token.value())
     {
         leptos_axum::redirect("/movies");
         return Ok(());
@@ -109,6 +138,7 @@ pub async fn authenticate() -> Result<(), ServerFnError> {
 #[server (prefix="", endpoint="discord_callback", input = GetUrl)]
 pub async fn discord_callback() -> Result<(), ServerFnError> {
     use crate::database::write_auth_token;
+    use crate::oauth::oauth::AUTH_TOKENS;
     use crate::oauth::oauth::{AppState, QueryAxumCallback};
     use crate::secrets::get_secrets;
     use axum::extract::Query;
@@ -163,17 +193,15 @@ pub async fn discord_callback() -> Result<(), ServerFnError> {
         .take(32)
         .map(char::from)
         .collect();
-    write_auth_token(oauth::AuthToken {
-        token: token.clone(),
-        discord_id: user.id,
-    })
-    .await
-    .map_err(ServerFnError::new)?;
-    app_state
-        .auth_tokens
-        .write()
+    write_auth_token(user.id, &token)
         .await
-        .insert(token.clone(), user.id);
+        .map_err(ServerFnError::new)?;
+    // app_state
+    //     .auth_tokens
+    //     .write()
+    //     .await
+    //     .insert(token.clone(), user.id);
+    AUTH_TOKENS.write().await.insert(token.clone(), user.id);
     let cookies: tower_cookies::Cookies = extract().await?;
     let mut cookie = Cookie::new("token", token);
     cookie.set_max_age(Some(Duration::weeks(4)));
