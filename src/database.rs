@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 use color_eyre::{Result, eyre::eyre};
+use iddqd::IdHashMap;
 use leptos::logging::log;
 use serde::{Deserialize, Serialize};
 use surrealdb::{
@@ -10,7 +11,12 @@ use surrealdb::{
     sql::Thing,
 };
 
-use crate::{app::ssr::MOVIE_LIST, movies::Movie, secrets::get_secrets};
+use crate::{
+    app::ssr::MOVIE_LIST,
+    movies::Movie,
+    oauth::oauth::{AUTH_TOKENS, User},
+    secrets::get_secrets,
+};
 
 static DB_CONNECTION: OnceLock<Surreal<Any>> = OnceLock::new();
 
@@ -81,5 +87,30 @@ pub async fn load_from_db() -> Result<()> {
 pub(crate) async fn write_movie_db(movie: Movie) -> Result<()> {
     let db = get_database().await;
     let _: Option<MovieDBRead> = db.upsert((MOVIES, movie.id as i64)).content(movie).await?;
+    Ok(())
+}
+
+pub(crate) const USERS: &str = "users";
+
+pub async fn get_users() -> Result<IdHashMap<User>> {
+    let db = get_database().await;
+    let users: Vec<User> = db.select(USERS).await?;
+    let mut auth_tokens = AUTH_TOKENS.write().await;
+    for user in &users {
+        for token in &user.auth_tokens {
+            auth_tokens.insert(token.to_owned(), user.user_id);
+        }
+    }
+    log!("Loaded {} users", users.len());
+    let users = users.into_iter().collect();
+    Ok(users)
+}
+
+pub(crate) async fn write_auth_token(user: u64, token: &str) -> Result<()> {
+    let db = get_database().await;
+    let query = format!("UPDATE {USERS}:⟨{user}⟩ SET auth_tokens += \"{token}\"");
+    log!("adding {query}");
+    db.query(query).await?;
+    log!("DID IT!");
     Ok(())
 }

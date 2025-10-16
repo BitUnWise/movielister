@@ -7,6 +7,8 @@ use tokio::sync::OnceCell;
 pub struct Secrets {
     pub surreal_db_password: String,
     pub tmdb_api_key: String,
+    pub discord_client_id: String,
+    pub discord_client_secret: String,
 }
 
 const SECRETS_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/secrets.toml");

@@ -76,13 +76,13 @@ pub fn App() -> impl IntoView {
         <Stylesheet id="leptos" href="/pkg/movielister.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos" />
+        <Title text="Movie Lister" />
 
         // content for this welcome page
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage />
+                    <Route path=StaticSegment("/movies") view=HomePage />
                 </Routes>
             </main>
         </Router>
@@ -164,11 +164,12 @@ fn HomePage() -> impl IntoView {
     let resource = client.resource(query, move || ());
 
     view! {
-        <h1>"Welcome to Leptos!"</h1>
+        <h1>"Welcome to MovieLister!"</h1>
         <MovieSearcher />
         <Suspense fallback=move || {
             view! { <p>"Loading list"</p> }
         }>
+        <h1>"Welcome to MovieLister!"</h1>
             {move || Suspend::new(async move {
                 let resource = resource.await.expect("Should have movies");
                 resource
