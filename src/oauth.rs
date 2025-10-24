@@ -128,7 +128,7 @@ pub async fn authenticate() -> Result<(), ServerFnError> {
     if let Some(token) = cookies.get("token")
         && AUTH_TOKENS.read().await.contains_key(token.value())
     {
-        leptos_axum::redirect("/movies");
+        leptos_axum::redirect("/movies/list");
         return Ok(());
     }
     leptos_axum::redirect(&create_url().await?);

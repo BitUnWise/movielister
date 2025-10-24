@@ -1,7 +1,8 @@
 use leptos::{
     prelude::*,
     server_fn::{
-         codec::{PostUrl, Rkyv}, Http
+        Http,
+        codec::{PostUrl, Rkyv},
     },
 };
 use leptos_fetch::QueryClient;
@@ -14,8 +15,8 @@ async fn get_search(query: String) -> Result<Vec<MovieSearch>, ServerFnError> {
         return Ok(vec![]);
     }
     use crate::secrets::get_secrets;
-use tmdb_api::client::reqwest::ReqwestExecutor;
-    use tmdb_api::{client::Client,  movie::search::Params};
+    use tmdb_api::client::reqwest::ReqwestExecutor;
+    use tmdb_api::{client::Client, movie::search::Params};
     let client = Client::<ReqwestExecutor>::new(get_secrets().await.tmdb_api_key.clone());
     let list = client.search_movies(query, &Params::default()).await?;
     Ok(list.results.into_iter().map(MovieSearch::from).collect())
@@ -38,6 +39,7 @@ pub fn movie_searcher() -> impl IntoView {
         <Suspense fallback=move || {
             view! {}
         }>
+            <div class="search">
             {move || Suspend::new(async move {
                 let search = search.await.expect("Should have movies");
                 search
@@ -45,6 +47,7 @@ pub fn movie_searcher() -> impl IntoView {
                     .map(&move |movie: &MovieSearch| view! { <MovieThumb movie=movie.clone() /> })
                     .collect::<Vec<_>>()
             })}
+            </div>
         </Suspense>
     }
 }

@@ -3,12 +3,10 @@ use std::sync::OnceLock;
 use color_eyre::{Result, eyre::eyre};
 use iddqd::IdHashMap;
 use leptos::logging::log;
-use serde::{Deserialize, Serialize};
 use surrealdb::{
     Surreal,
     engine::any::{self, Any},
     opt::auth::Root,
-    sql::Thing,
 };
 
 use crate::{
@@ -50,35 +48,16 @@ async fn get_database() -> &'static Surreal<Any> {
     DB_CONNECTION.get().unwrap()
 }
 
-const MOVIES: &str = "movie";
-
-#[derive(Serialize, Deserialize)]
-struct MovieDBRead {
-    id: Thing,
-    name: String,
-}
-
-impl From<MovieDBRead> for Movie {
-    fn from(value: MovieDBRead) -> Self {
-        let surrealdb::sql::Id::Number(id) = value.id.id else {
-            panic!()
-        };
-        let id = id as u32;
-        Self {
-            id,
-            name: value.name,
-        }
-    }
-}
+pub(crate) const MOVIES: &str = "movie";
 
 pub async fn load_from_db() -> Result<()> {
     init_database().await?;
     let db = get_database().await;
-    let movies: Vec<MovieDBRead> = db.select(MOVIES).await?;
+    let movies: Vec<Movie> = db.select(MOVIES).await?;
     let mut movie_list = MOVIE_LIST
         .write()
         .map_err(|_| eyre!("Failed to open MOVIE_LIST"))?;
-    *movie_list = movies.into_iter().map(Movie::from).collect();
+    *movie_list = movies.into_iter().collect();
     log!("Loaded {} movies", movie_list.len());
 
     Ok(())
@@ -86,7 +65,10 @@ pub async fn load_from_db() -> Result<()> {
 
 pub(crate) async fn write_movie_db(movie: Movie) -> Result<()> {
     let db = get_database().await;
-    let _: Option<MovieDBRead> = db.upsert((MOVIES, movie.id as i64)).content(movie).await?;
+    let _: Option<Movie> = db
+        .upsert((MOVIES, movie.base.movie_id as i64))
+        .content(movie)
+        .await?;
     Ok(())
 }
 

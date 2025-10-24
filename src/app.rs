@@ -13,11 +13,15 @@ use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
     StaticSegment,
-    components::{Route, Router, Routes},
+    components::{Outlet, ParentRoute, Route, Router, Routes},
+    hooks::use_navigate,
 };
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::{app::movie_searcher::MovieSearcher, movies::Movie};
+use crate::{
+    app::movie_searcher::MovieSearcher,
+    movies::{Movie, MovieCard},
+};
 
 mod movie_searcher;
 
@@ -82,7 +86,10 @@ pub fn App() -> impl IntoView {
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("/movies") view=HomePage />
+                    <ParentRoute path=StaticSegment("/movies") view=HomePage>
+                        <Route path = StaticSegment("/list") view=MovieList/>
+                        <Route path = StaticSegment("/new") view=MovieSearcher/>
+                    </ParentRoute>
                 </Routes>
             </main>
         </Router>
@@ -96,7 +103,17 @@ async fn get_movies() -> Result<IdHashMap<Movie>, ServerFnError> {
 }
 
 #[server(protocol = Http<PostUrl, Rkyv>)]
-async fn add_movie(movie: Movie) -> Result<(), ServerFnError> {
+pub(crate) async fn add_movie(movie_id: u64) -> Result<(), ServerFnError> {
+    use crate::secrets::get_secrets;
+    use tmdb_api::client::Client;
+    use tmdb_api::client::reqwest::ReqwestExecutor;
+    let client = Client::<ReqwestExecutor>::new(get_secrets().await.tmdb_api_key.clone());
+    let list = client
+        .get_movie_details(movie_id, &Default::default())
+        .await?;
+    let movie: Movie = Movie {
+        base: list.inner.into(),
+    };
     use futures::SinkExt;
     let movie_send = movie.clone();
     tokio::spawn(async move {
@@ -158,30 +175,38 @@ fn HomePage() -> impl IntoView {
         });
     }
 
+    view! {
+        <h1>"Welcome to MovieLister!"</h1>
+        <button on:click=move |_| use_navigate()("/movies/list", leptos_router::NavigateOptions::default() )>"List"</button>
+        <button on:click=move |_| use_navigate()("/movies/new", leptos_router::NavigateOptions::default() )>"Search"</button>
+        <Outlet />
+    }
+}
+
+#[component]
+fn movie_list() -> impl IntoView {
+    let client: QueryClient = expect_context();
     let query = QueryScope::new(get_movies)
         .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(360)))
         .with_title("Movies");
     let resource = client.resource(query, move || ());
-
     view! {
-        <h1>"Welcome to MovieLister!"</h1>
-        <MovieSearcher />
-        <Suspense fallback=move || {
-            view! { <p>"Loading list"</p> }
-        }>
-        <h1>"Welcome to MovieLister!"</h1>
-            {move || Suspend::new(async move {
-                let resource = resource.await.expect("Should have movies");
-                resource
-                    .iter()
-                    .map(
-                        &move |movie: &Movie| {
-                            let name = movie.name.clone();
-                            view! { <p>"Title: " {name}</p> }
-                        },
-                    )
-                    .collect::<Vec<_>>()
-            })}
-        </Suspense>
+    <Suspense fallback=move || {
+        view! { <p>"Loading list"</p> }
+    }>
+        <div class="search">
+        {move || Suspend::new(async move {
+            let resource = resource.await.expect("Should have movies");
+            resource
+                .iter()
+                .map(
+                    &move |movie: &Movie| {
+                        view! { <MovieCard movie=movie.clone()/>}
+                    },
+                )
+                .collect::<Vec<_>>()
+        })}
+        </div>
+    </Suspense>
     }
 }
