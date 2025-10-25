@@ -3,6 +3,7 @@ use iddqd::{IdHashItem, id_upcast};
 use leptos::{prelude::*, task::spawn_local};
 use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
+use thaw::ProgressCircle;
 
 use crate::app::add_movie;
 
@@ -60,6 +61,7 @@ pub(crate) fn MovieCard(movie: Movie) -> impl IntoView {
         <div class = "card">
             <img src=poster />
             <label>{movie.base.title}</label>
+            <ProgressCircle value={movie.base.vote_average * 10.}/>
         </div>
     }
 }

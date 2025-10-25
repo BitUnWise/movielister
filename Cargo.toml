@@ -7,16 +7,16 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-leptos = { version = "0.8.10", features = ["rkyv"] }
-leptos_router = { version = "0.8.8" }
+leptos = { version = "0.8.11", features = ["rkyv"] }
+leptos_router = { version = "0.8.9" }
 axum = { version = "0.8.6", features = ["macros"], optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 leptos_axum = { version = "0.8.6", optional = true }
 leptos_meta = { version = "0.8.5"}
 tokio = { version = "1", features = ["full", "rt-multi-thread"], optional = true }
-wasm-bindgen = { version = "=0.2.103", optional = true }
+wasm-bindgen = { version = "=0.2.104", optional = true }
 surrealdb ={version =  "2.3.10", optional = true}
-toml ={version =  "0.9.7", optional = true}
+toml ={version =  "0.9.8", optional = true}
 serde = { version = "1.0.228", features = ["derive"]}
 color-eyre = "0.6.5"
 leptos-fetch = { version = "0.4.7", features = ["devtools"] }
@@ -27,15 +27,17 @@ tmdb-api = {git = "https://github.com/BitUnWise/tmdb-api.git", rev="67cf1fea6da4
 chrono = "0.4.42"
 oauth-axum = { version = "0.1.4", optional = true }
 tower-cookies = { version = "0.11.0", optional = true }
-reqwest = { version = "0.12.23", optional = true, features = ["json"] }
-serde_with = { version = "3.15.0", optional = true }
+reqwest = { version = "0.12.24", optional = true, features = ["json"] }
+serde_with = { version = "3.15.1", optional = true }
 rand = { version = "0.9.2", optional = true }
 surreal_devl = { version = "2.2.4", optional = true }
 surreal_derive_plus = { version = "2.2.5", optional = true }
+thaw = { version = "0.5.0-beta"}
 
 [features]
 hydrate = [
     "leptos/hydrate",
+    "thaw/hydrate",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
 ]
@@ -46,6 +48,7 @@ ssr = [
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
+    "thaw/ssr",
     "dep:surrealdb",
     "dep:toml",
     "leptos-fetch/ssr",

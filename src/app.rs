@@ -17,6 +17,7 @@ use leptos_router::{
     hooks::use_navigate,
 };
 use rkyv::{Archive, Deserialize, Serialize};
+use thaw::{ConfigProvider, ssr::SSRMountStyleProvider};
 
 use crate::{
     app::movie_searcher::MovieSearcher,
@@ -48,6 +49,7 @@ pub(crate) mod ssr {
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
+        <SSRMountStyleProvider>
         <!DOCTYPE html>
         <html lang="en">
             <head>
@@ -61,6 +63,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <App />
             </body>
         </html>
+        </SSRMountStyleProvider>
     }
 }
 
@@ -83,6 +86,7 @@ pub fn App() -> impl IntoView {
         <Title text="Movie Lister" />
 
         // content for this welcome page
+        <ConfigProvider>
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
@@ -93,6 +97,7 @@ pub fn App() -> impl IntoView {
                 </Routes>
             </main>
         </Router>
+        </ConfigProvider>
     }
 }
 
