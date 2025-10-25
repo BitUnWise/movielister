@@ -1,4 +1,3 @@
-use std::time::Duration;
 
 use iddqd::IdHashMap;
 use leptos::{
@@ -9,7 +8,7 @@ use leptos::{
         codec::{PostUrl, Rkyv, RkyvEncoding},
     },
 };
-use leptos_fetch::{QueryClient, QueryDevtools, QueryOptions, QueryScope};
+use leptos_fetch::{QueryClient, QueryDevtools};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
     StaticSegment,
@@ -17,14 +16,15 @@ use leptos_router::{
     hooks::use_navigate,
 };
 use rkyv::{Archive, Deserialize, Serialize};
-use thaw::{ConfigProvider, ssr::SSRMountStyleProvider};
+use thaw::{ConfigProvider, Theme, ssr::SSRMountStyleProvider};
 
 use crate::{
-    app::movie_searcher::MovieSearcher,
-    movies::{Movie, MovieCard},
+    app::{movie_list::MovieList, movie_searcher::MovieSearcher},
+    movies::Movie,
 };
 
 mod movie_searcher;
+mod movie_list;
 
 #[derive(Clone, Serialize, Deserialize, Archive, Debug)]
 pub(crate) enum Msg {
@@ -50,19 +50,19 @@ pub(crate) mod ssr {
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
         <SSRMountStyleProvider>
-        <!DOCTYPE html>
-        <html lang="en">
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <AutoReload options=options.clone() />
-                <HydrationScripts options />
-                <MetaTags />
-            </head>
-            <body>
-                <App />
-            </body>
-        </html>
+            <!DOCTYPE html>
+            <html lang="en">
+                <head>
+                    <meta charset="utf-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1" />
+                    <AutoReload options=options.clone() />
+                    <HydrationScripts options />
+                    <MetaTags />
+                </head>
+                <body>
+                    <App />
+                </body>
+            </html>
         </SSRMountStyleProvider>
     }
 }
@@ -76,6 +76,8 @@ pub fn App() -> impl IntoView {
         .with_refetch_enabled_toggle(true)
         .provide();
 
+    let theme = RwSignal::new(Theme::dark());
+
     view! {
         <QueryDevtools client=client />
         // injects a stylesheet into the document <head>
@@ -86,17 +88,17 @@ pub fn App() -> impl IntoView {
         <Title text="Movie Lister" />
 
         // content for this welcome page
-        <ConfigProvider>
-        <Router>
-            <main>
-                <Routes fallback=|| "Page not found.".into_view()>
-                    <ParentRoute path=StaticSegment("/movies") view=HomePage>
-                        <Route path = StaticSegment("/list") view=MovieList/>
-                        <Route path = StaticSegment("/new") view=MovieSearcher/>
-                    </ParentRoute>
-                </Routes>
-            </main>
-        </Router>
+        <ConfigProvider theme>
+            <Router>
+                <main>
+                    <Routes fallback=|| "Page not found.".into_view()>
+                        <ParentRoute path=StaticSegment("/movies") view=HomePage>
+                            <Route path=StaticSegment("/list") view=MovieList />
+                            <Route path=StaticSegment("/new") view=MovieSearcher />
+                        </ParentRoute>
+                    </Routes>
+                </main>
+            </Router>
         </ConfigProvider>
     }
 }
@@ -182,36 +184,15 @@ fn HomePage() -> impl IntoView {
 
     view! {
         <h1>"Welcome to MovieLister!"</h1>
-        <button on:click=move |_| use_navigate()("/movies/list", leptos_router::NavigateOptions::default() )>"List"</button>
-        <button on:click=move |_| use_navigate()("/movies/new", leptos_router::NavigateOptions::default() )>"Search"</button>
+        <button on:click=move |_| use_navigate()(
+            "/movies/list",
+            leptos_router::NavigateOptions::default(),
+        )>"List"</button>
+        <button on:click=move |_| use_navigate()(
+            "/movies/new",
+            leptos_router::NavigateOptions::default(),
+        )>"Search"</button>
         <Outlet />
     }
 }
 
-#[component]
-fn movie_list() -> impl IntoView {
-    let client: QueryClient = expect_context();
-    let query = QueryScope::new(get_movies)
-        .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(360)))
-        .with_title("Movies");
-    let resource = client.resource(query, move || ());
-    view! {
-    <Suspense fallback=move || {
-        view! { <p>"Loading list"</p> }
-    }>
-        <div class="search">
-        {move || Suspend::new(async move {
-            let resource = resource.await.expect("Should have movies");
-            resource
-                .iter()
-                .map(
-                    &move |movie: &Movie| {
-                        view! { <MovieCard movie=movie.clone()/>}
-                    },
-                )
-                .collect::<Vec<_>>()
-        })}
-        </div>
-    </Suspense>
-    }
-}

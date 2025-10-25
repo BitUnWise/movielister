@@ -1,9 +1,9 @@
 use chrono::NaiveDate;
-use iddqd::{IdHashItem, id_upcast};
+use iddqd::{id_upcast, IdHashItem};
 use leptos::{prelude::*, task::spawn_local};
 use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
-use thaw::ProgressCircle;
+use thaw::{Flex, Layout, LayoutHeader, LayoutSider, ProgressCircle, Text};
 
 use crate::app::add_movie;
 
@@ -58,11 +58,20 @@ pub(crate) fn MovieCard(movie: Movie) -> impl IntoView {
         .map(|p| format!("{IMAGE_PREFIX}{p}"))
         .unwrap_or_default();
     view! {
-        <div class = "card">
-            <img src=poster />
-            <label>{movie.base.title}</label>
-            <ProgressCircle value={movie.base.vote_average * 10.}/>
-        </div>
+        <Layout has_sider=true class="card">
+            <LayoutSider>
+                <img src=poster />
+            </LayoutSider>
+            <Layout>
+                <LayoutHeader>
+                    <label>{movie.base.title}</label>
+                </LayoutHeader>
+                <Flex vertical=true>
+                    <ProgressCircle value=movie.base.vote_average * 10. />
+                    <Text>{movie.base.overview}</Text>
+                </Flex>
+            </Layout>
+        </Layout>
     }
 }
 
@@ -181,16 +190,15 @@ pub(crate) fn MovieThumb(movie: MovieSearch) -> impl IntoView {
         .unwrap_or_default();
     let movie_id = movie.inner.movie_id;
     view! {
-           <div class = "card">
-               <img src=poster />
-               <label>{movie.inner.title.clone()}</label>
-    <button on:click=move |_| {
+        <div class="card">
+            <img src=poster />
+            <label>{movie.inner.title.clone()}</label>
+            <button on:click=move |_| {
                 let movie_id = movie_id;
-               spawn_local(async move {
-                   add_movie(movie_id).await.unwrap();
-               });
-           }>
-               "Add"
-           </button>        </div>
-       }
+                spawn_local(async move {
+                    add_movie(movie_id).await.unwrap();
+                });
+            }>"Add"</button>
+        </div>
+    }
 }
