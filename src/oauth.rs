@@ -76,9 +76,9 @@ pub mod oauth {
         use axum::RequestExt;
         use axum::{body::Body, http::StatusCode};
 
-        let cookies: tower_cookies::Cookies = request.extract_parts().await.unwrap();
-        let auth_tokens = AUTH_TOKENS.read().await;
         if request.uri().path().starts_with("/movies") {
+            let cookies: tower_cookies::Cookies = request.extract_parts().await.unwrap();
+            let auth_tokens = AUTH_TOKENS.read().await;
             if cookies
                 .get("token")
                 .is_none_or(|t| !auth_tokens.contains_key(t.value()))
@@ -209,6 +209,6 @@ pub async fn discord_callback() -> Result<(), ServerFnError> {
     cookie.set_secure(true);
     cookies.add(cookie);
     log!("{user:?}");
-    leptos_axum::redirect("/movies");
+    leptos_axum::redirect("/movies/list");
     Ok(())
 }
