@@ -23,6 +23,7 @@ use crate::app::add_movie;
 )]
 pub struct Movie {
     pub(crate) base: MovieBase,
+    pub(crate) time_added: u64,
 }
 
 impl IdHashItem for Movie {

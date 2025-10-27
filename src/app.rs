@@ -114,12 +114,14 @@ pub(crate) async fn add_movie(movie_id: u64) -> Result<(), ServerFnError> {
     use crate::secrets::get_secrets;
     use tmdb_api::client::Client;
     use tmdb_api::client::reqwest::ReqwestExecutor;
+    use chrono::Utc;
     let client = Client::<ReqwestExecutor>::new(get_secrets().await.tmdb_api_key.clone());
     let list = client
         .get_movie_details(movie_id, &Default::default())
         .await?;
     let movie: Movie = Movie {
         base: list.inner.into(),
+        time_added: Utc::now().timestamp() as u64,
     };
     use futures::SinkExt;
     let movie_send = movie.clone();
