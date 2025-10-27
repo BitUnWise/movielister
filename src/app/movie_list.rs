@@ -3,6 +3,7 @@ use std::{cmp::Ordering, time::Duration};
 use iddqd::IdHashMap;
 use leptos::prelude::*;
 use leptos_fetch::{QueryClient, QueryOptions, QueryScope};
+use ordered_float::OrderedFloat;
 use thaw::Flex;
 
 use crate::{
@@ -22,6 +23,7 @@ pub(crate) fn movie_list() -> impl IntoView {
     let sort_order = RwSignal::new(SortOrder::default());
     view! {
         <Flex>
+            <SortButton sort_type=SortType::Added sort_order />
             <SortButton sort_type=SortType::Title sort_order />
             <SortButton sort_type=SortType::Score sort_order />
         </Flex>
@@ -56,12 +58,16 @@ impl SortOrder {
     fn sort_movies(&self, movies: &IdHashMap<Movie>) -> Vec<u64> {
         let mut titles = movies.iter().map(|m| m.base.movie_id).collect::<Vec<_>>();
         match self.sort_type {
+            SortType::Added => {
+                let key = |t| &movies.get(&t).unwrap().time_added;
+                titles.sort_unstable_by(|l, r| self.sort_items(*l, *r, key));
+            }
             SortType::Title => {
                 let key = |t| &movies.get(&t).unwrap().base.title;
                 titles.sort_unstable_by(|l, r| self.sort_items(*l, *r, key));
             }
             SortType::Score => {
-                let key = |t| (movies.get(&t).unwrap().base.vote_average * 100.) as u32;
+                let key = |t| OrderedFloat(movies.get(&t).unwrap().base.vote_average);
                 titles.sort_unstable_by(|l, r| self.sort_items(*l, *r, key));
             }
         }
@@ -82,6 +88,7 @@ impl SortOrder {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, Hash)]
 enum SortType {
     #[default]
+    Added,
     Title,
     Score,
 }
@@ -91,6 +98,7 @@ use std::fmt::Display as StdDisplay;
 impl StdDisplay for SortType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            SortType::Added => write!(f, "Added"),
             SortType::Title => write!(f, "Title"),
             SortType::Score => write!(f, "Score"),
         }

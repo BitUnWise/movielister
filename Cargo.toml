@@ -34,6 +34,7 @@ surreal_devl = { version = "2.2.4", optional = true }
 surreal_derive_plus = { version = "2.2.5", optional = true }
 thaw = { version = "0.5.0-beta"}
 icondata = {version = "0.6.0", default-features = false, features = ["ant-design-icons"]}
+ordered-float = "5.1.0"
 
 [features]
 hydrate = [
