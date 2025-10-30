@@ -104,8 +104,20 @@ pub fn App() -> impl IntoView {
 #[server]
 async fn get_movies() -> Result<IdHashMap<Movie>, ServerFnError> {
     let count = self::ssr::MOVIE_LIST.read()?;
-    log!("{count:?}");
     Ok(count.clone())
+}
+
+#[server]
+async fn get_movie_list() -> Result<Vec<u64>, ServerFnError> {
+    let movies = self::ssr::MOVIE_LIST.read()?;
+    Ok(movies.iter().map(|m| m.base.movie_id).collect())
+}
+
+#[server]
+pub(crate) async fn get_movie(id: u64) -> Result<Movie, ServerFnError> {
+    let movies = self::ssr::MOVIE_LIST.read()?;
+    movies.get(&id).cloned()
+        .ok_or_else(|| ServerFnError::ServerError(format!("Couldn't find movie {id}")))
 }
 
 #[server(protocol = Http<PostUrl, Rkyv>)]

@@ -7,7 +7,7 @@ use ordered_float::OrderedFloat;
 use thaw::Flex;
 
 use crate::{
-    app::{get_movies, movie_list::sort_button::SortButton},
+    app::{get_movie, get_movie_list, get_movies, movie_list::sort_button::SortButton},
     movies::{
         rating::{MovieRating, Rating},
         Movie, MovieCard,
@@ -19,11 +19,12 @@ mod sort_button;
 #[component]
 pub(crate) fn movie_list() -> impl IntoView {
     let client: QueryClient = expect_context();
-    let query = QueryScope::new(get_movies)
+    let query = QueryScope::new(get_movie_list)
         .with_options(QueryOptions::new().with_refetch_interval(Duration::from_secs(360)))
         .with_title("Movies");
     let resource = client.resource(query, move || ());
     let sort_order = RwSignal::new(SortOrder::default());
+    let sorting = client.local_resource(sort_movies, move || sort_order.get());
     view! {
         <Flex>
             <SortButton sort_type=SortType::Added sort_order />
@@ -35,20 +36,22 @@ pub(crate) fn movie_list() -> impl IntoView {
         }>
             <div class="search">
                 {move || Suspend::new(async move {
-                    let resource = resource.await.expect("Should have movies");
-                    let ids = sort_order.get().sort_movies(&resource);
-                    ids.iter()
-                        .map(|i| resource.get(i).unwrap())
-                        .map(
-                            &move |movie: &Movie| {
-                                view! { <MovieCard movie=movie.clone() /> }
-                            },
-                        )
-                        .collect_view()
+                    let movies = sorting.await;
+                    movies.iter().map(|&m| view! { <MovieCard movie=m /> }).collect_view()
                 })}
             </div>
         </Suspense>
     }
+}
+
+async fn sort_movies(sort_order: SortOrder) -> Vec<u64> {
+    let client: QueryClient = expect_context();
+    let movies = client.fetch_query(get_movie_list, ()).await.unwrap();
+    let mut movie_map = IdHashMap::new();
+    for movie in movies {
+        movie_map.insert_unique(client.fetch_query(get_movie, movie).await.unwrap());
+    }
+    sort_order.sort_movies(&movie_map)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Default, Hash)]

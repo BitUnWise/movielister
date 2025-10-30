@@ -1,12 +1,13 @@
 use chrono::NaiveDate;
 use iddqd::{id_upcast, IdHashItem};
 use leptos::{prelude::*, task::spawn_local};
+use leptos_fetch::QueryClient;
 use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
 use thaw::{Flex, Layout, LayoutHeader, LayoutSider, ProgressCircle, Text};
 
 use crate::{
-    app::add_movie,
+    app::{add_movie, get_movie},
     movies::rating::{MovieRating, Rating},
 };
 
@@ -46,28 +47,39 @@ mod movie_db {
 }
 
 #[component]
-pub(crate) fn MovieCard(movie: Movie) -> impl IntoView {
+pub(crate) fn MovieCard(movie: u64) -> impl IntoView {
+    let client: QueryClient = expect_context();
+    let movie = client.resource(get_movie, move || movie);
+    let movie_card = {move || Suspend::new(async move {
+        let movie = movie.await.unwrap();
+        
     let poster = movie
         .base
         .poster_path
         .map(|p| format!("{IMAGE_PREFIX}{p}"))
         .unwrap_or_default();
-    view! {
-        <Layout has_sider=true class="card">
-            <LayoutSider>
-                <img src=poster />
-            </LayoutSider>
-            <Layout>
-                <LayoutHeader>
-                    <label>{movie.base.title}</label>
-                </LayoutHeader>
-                <Flex vertical=true>
-                    <ProgressCircle value=movie.base.vote_average * 10. />
-                    <Rating rating=movie.rating id=movie.base.movie_id />
-                    <Text>{movie.base.overview}</Text>
-                </Flex>
+        view! {
+            <Layout has_sider=true class="card">
+                <LayoutSider>
+                    <img src=poster />
+                </LayoutSider>
+                <Layout>
+                    <LayoutHeader>
+                        <label>{movie.base.title}</label>
+                    </LayoutHeader>
+                    <Flex vertical=true>
+                        <ProgressCircle value=movie.base.vote_average * 10. />
+                        <Rating rating=movie.rating id=movie.base.movie_id />
+                        <Text>{movie.base.overview}</Text>
+                    </Flex>
+                </Layout>
             </Layout>
-        </Layout>
+        }
+    })};
+    view! {
+        <Suspense fallback=move || {
+            view! { <p>"Loading list"</p> }
+        }>{movie_card}</Suspense>
     }
 }
 
