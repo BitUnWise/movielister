@@ -1,12 +1,9 @@
 
 use iddqd::IdHashMap;
 use leptos::{
-    prelude::*,
-    reactive::spawn_local,
-    server_fn::{
-        BoxedStream, Http, ServerFnError, Websocket,
-        codec::{PostUrl, Rkyv, RkyvEncoding},
-    },
+    logging::log, prelude::*, reactive::spawn_local, server_fn::{
+        codec::{PostUrl, Rkyv, RkyvEncoding}, BoxedStream, Http, ServerFnError, Websocket
+    }
 };
 use leptos_fetch::{QueryClient, QueryDevtools};
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
@@ -29,6 +26,7 @@ mod movie_list;
 #[derive(Clone, Serialize, Deserialize, Archive, Debug)]
 pub(crate) enum Msg {
     AddMovie(Movie),
+    RateMovie((u64, u64, u8)),
 }
 
 #[cfg(feature = "ssr")]
@@ -106,6 +104,7 @@ pub fn App() -> impl IntoView {
 #[server]
 async fn get_movies() -> Result<IdHashMap<Movie>, ServerFnError> {
     let count = self::ssr::MOVIE_LIST.read()?;
+    log!("{count:?}");
     Ok(count.clone())
 }
 
@@ -122,6 +121,7 @@ pub(crate) async fn add_movie(movie_id: u64) -> Result<(), ServerFnError> {
     let movie: Movie = Movie {
         base: list.inner.into(),
         time_added: Utc::now().timestamp() as u64,
+        ..Default::default()
     };
     use futures::SinkExt;
     let movie_send = movie.clone();
@@ -173,6 +173,16 @@ fn HomePage() -> impl IntoView {
                                 client.update_query(get_movies, (), |c| {
                                     if let Some(Ok(c)) = c {
                                         c.insert_overwrite(movie);
+                                    }
+                                });
+                            }
+                            Msg::RateMovie((movie_id, user_id, rating)) => {
+                                client.update_query(get_movies, (), |c| {
+                                    client.untrack_update_query();
+                                    if let Some(Ok(c)) = c {
+                                        if let Some(mut movie) = c.get_mut(&movie_id) {
+                                            movie.rating.add_rating(user_id, rating);
+                                        }
                                     }
                                 });
                             }

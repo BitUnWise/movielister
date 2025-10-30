@@ -8,7 +8,10 @@ use thaw::Flex;
 
 use crate::{
     app::{get_movies, movie_list::sort_button::SortButton},
-    movies::{Movie, MovieCard},
+    movies::{
+        rating::{MovieRating, Rating},
+        Movie, MovieCard,
+    },
 };
 
 mod sort_button;
@@ -41,7 +44,7 @@ pub(crate) fn movie_list() -> impl IntoView {
                                 view! { <MovieCard movie=movie.clone() /> }
                             },
                         )
-                        .collect::<Vec<_>>()
+                        .collect_view()
                 })}
             </div>
         </Suspense>

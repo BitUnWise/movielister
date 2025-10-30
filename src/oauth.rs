@@ -9,9 +9,11 @@ pub mod oauth {
 
     use axum::middleware::Next;
     use axum::response::Response;
+    use color_eyre::eyre::{self, ContextCompat};
     use iddqd::{IdHashItem, IdHashMap, id_upcast};
     use leptos::prelude::ServerFnError;
     use leptos::{config::LeptosOptions, prelude::expect_context};
+    use leptos_axum::extract;
     use oauth_axum::providers::discord::DiscordProvider;
     use oauth_axum::{CustomProvider, OAuthClient};
     use serde::{Deserialize, Serialize};
@@ -94,6 +96,14 @@ pub mod oauth {
         response
     }
 
+    pub async fn get_user() -> Result<u64, ServerFnError> {
+        let cookies: tower_cookies::Cookies = extract().await?;
+        let tokens = AUTH_TOKENS.read().await;
+        cookies.get("token").and_then(|t| tokens.get(t.value_trimmed()))
+            .cloned()
+            .ok_or_else(|| ServerFnError::ServerError("Unable to find key".to_owned()))
+    }
+
     #[derive(SurrealDerive, Serialize, Deserialize, Debug)]
     pub struct User {
         pub user_id: u64,
@@ -119,6 +129,7 @@ pub mod oauth {
         }
     }
 }
+
 #[server (prefix="", endpoint="", input = GetUrl)]
 pub async fn authenticate() -> Result<(), ServerFnError> {
     use crate::oauth::oauth::AUTH_TOKENS;

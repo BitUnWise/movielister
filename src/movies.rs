@@ -5,25 +5,19 @@ use rkyv::{Archive, Deserialize as RDes, Serialize as RSer};
 use serde::{Deserialize, Serialize};
 use thaw::{Flex, Layout, LayoutHeader, LayoutSider, ProgressCircle, Text};
 
-use crate::app::add_movie;
+use crate::{
+    app::add_movie,
+    movies::rating::{MovieRating, Rating},
+};
 
-#[derive(
-    Default,
-    Clone,
-    PartialEq,
-    PartialOrd,
-    Ord,
-    Eq,
-    Serialize,
-    Deserialize,
-    Archive,
-    Debug,
-    RDes,
-    RSer,
-)]
+pub(crate) mod rating;
+
+#[derive(Default, Clone, PartialEq, Eq, Serialize, Deserialize, Archive, Debug, RDes, RSer)]
 pub struct Movie {
     pub(crate) base: MovieBase,
     pub(crate) time_added: u64,
+    #[serde(default)]
+    pub(crate) rating: MovieRating,
 }
 
 impl IdHashItem for Movie {
@@ -69,6 +63,7 @@ pub(crate) fn MovieCard(movie: Movie) -> impl IntoView {
                 </LayoutHeader>
                 <Flex vertical=true>
                     <ProgressCircle value=movie.base.vote_average * 10. />
+                    <Rating rating=movie.rating id=movie.base.movie_id />
                     <Text>{movie.base.overview}</Text>
                 </Flex>
             </Layout>
